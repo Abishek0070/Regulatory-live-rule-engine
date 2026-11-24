@@ -1,5 +1,6 @@
 import hashlib
 import ipaddress
+import os
 import socket
 import ssl
 import struct
@@ -45,7 +46,7 @@ def verdict(reply):
         raise ValueError("MALWARE_DETECTED" if reply.endswith(b" FOUND") else "SCAN_INCONCLUSIVE")
 
 def command(cmd, data=None):
-    with socket.create_connection(("clamav",3310),timeout=30) as s:
+    with socket.create_connection((os.environ.get("CLAMAV_HOST", "clamav"), 3310), timeout=30) as s:
         s.sendall(b"z"+cmd+b"\0")
         if data is not None:
             for i in range(0,len(data),65536):

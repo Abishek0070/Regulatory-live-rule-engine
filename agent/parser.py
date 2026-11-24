@@ -1,4 +1,5 @@
 import io
+import os
 import sys
 import json
 from docling.datamodel.base_models import DocumentStream, InputFormat, ConversionStatus
@@ -6,7 +7,7 @@ from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.document_converter import DocumentConverter, PdfFormatOption
 
 
-options=PdfPipelineOptions(artifacts_path="/models")
+options=PdfPipelineOptions(artifacts_path=None if os.environ.get("DOCLING_LOCAL") == "1" else "/models")
 converter=DocumentConverter(allowed_formats=[InputFormat.PDF],format_options={
     InputFormat.PDF:PdfFormatOption(pipeline_options=options)})
 

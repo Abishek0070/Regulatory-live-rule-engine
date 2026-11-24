@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Regulatory test console</title>
+  <link rel="stylesheet" href="/console/console.css">
+  <script src="/console/console.js" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">RBI / SEBI</p>
+      <h1>Regulatory test console</h1>
+    </header>
+    <div class="columns">
+      <div class="controls">
+        <section aria-labelledby="submit-title">
+          <h2 id="submit-title">Submit a document</h2>
+          <form id="submit-job">
+            <label for="regulator">Regulator</label>
+            <select id="regulator" name="regulator"><option>RBI</option><option>SEBI</option></select>
+            <label for="source-url">Official PDF URL</label>
+            <input id="source-url" name="source_url" type="url" required maxlength="2048"
+                   placeholder="https://…" autocomplete="off">
+            <label for="pdf">PDF upload <span>optional</span></label>
+            <input id="pdf" type="file" accept=".pdf,application/pdf" aria-describedby="upload-help">
+            <p id="upload-help" class="hint">The upload must match the official PDF byte for byte.</p>
+            <button type="submit">Run document</button>
+          </form>
+        </section>
+        <section aria-labelledby="lookup-title">
+          <h2 id="lookup-title">Look up a job</h2>
+          <form id="lookup-job">
+            <label for="job-id">Job ID</label>
+            <input id="job-id" required pattern="[0-9a-fA-F-]{36}" placeholder="Job UUID">
+            <button class="secondary" type="submit">Look up</button>
+          </form>
+        </section>
+      </div>
+      <section class="output" aria-labelledby="output-title">
+        <h2 id="output-title">Job output</h2>
+        <p id="status" role="status">Submit a document or look up an existing job.</p>
+        <div id="results"></div>
+        <details id="raw" hidden>
+          <summary>Raw JSON</summary>
+          <pre id="raw-json"></pre>
+        </details>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

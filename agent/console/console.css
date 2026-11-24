@@ -1,0 +1,52 @@
+:root {
+  color-scheme: light;
+  --paper: #f5f3eb;
+  --ink: #222822;
+  --muted: #535e55;
+  --line: #c4c8bb;
+  --green: #294735;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 1rem/1.55 "Trebuchet MS", sans-serif;
+}
+
+main { max-width: 1100px; margin: 0 auto; padding: clamp(24px, 5vw, 64px); }
+header { border-top: 5px solid var(--green); padding: 20px 0 25px; }
+h1, h2 { font-family: Georgia, serif; line-height: 1.12; margin: 0; font-weight: 500; }
+h1 { font-size: clamp(2.5rem, 6vw, 4.65rem); letter-spacing: -.055em; }
+h2 { font-size: 1.65rem; margin-bottom: 1rem; }
+.eyebrow { font: 700 .8rem Consolas, monospace; letter-spacing: .15em; color: var(--green); }
+.columns { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(0, 1.5fr); gap: 32px; margin-top: 32px; }
+.controls section + section { border-top: 1px solid var(--line); margin-top: 28px; padding-top: 24px; }
+.output { background: #fffef9; border: 1px solid var(--line); align-self: start; padding: clamp(16px, 3vw, 28px); min-height: 245px; }
+label { display: block; font-weight: 700; margin: 12px 0 4px; }
+label span, .hint, #status { color: var(--muted); }
+label span, .hint { font-size: .85rem; font-weight: 400; }
+.hint { margin: 4px 0; }
+input, select, button { font: inherit; }
+input, select { display: block; width: 100%; padding: 8px; border: 1px solid #828c7d; border-radius: 3px; background: #fffef9; color: var(--ink); }
+button { margin-top: 15px; padding: 8px 16px; border: 1px solid var(--green); border-radius: 3px; background: var(--green); color: white; cursor: pointer; }
+button.secondary { color: var(--green); background: transparent; }
+button:disabled { opacity: .55; cursor: wait; }
+:focus-visible { outline: 2px solid #916220; outline-offset: 3px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; vertical-align: top; padding: 10px 8px; border-bottom: 1px solid var(--line); }
+td:first-child { white-space: nowrap; }
+td p { margin: 0; overflow-wrap: anywhere; }
+td details { font-size: .85rem; color: var(--muted); border: 0; padding-top: 0; }
+td details p { margin-top: 8px; }
+.metadata, pre { overflow-wrap: anywhere; }
+.metadata { color: var(--muted); }
+pre { font: .8rem/1.5 Consolas, monospace; white-space: pre-wrap; }
+details { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+summary { cursor: pointer; }
+#status.error { color: #9c332b; }
+
+@media (max-width: 720px) {
+  .columns { grid-template-columns: minmax(0, 1fr); }
+}

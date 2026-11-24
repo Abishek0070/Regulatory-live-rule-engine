@@ -1,6 +1,18 @@
 import hashlib
 import pytest
+from agent import security
 from agent.security import target, verify, verdict
+
+def test_scanner_can_use_local_daemon(monkeypatch):
+    monkeypatch.setenv("CLAMAV_HOST", "127.0.0.1")
+
+    def connect(address, timeout):
+        assert address == ("127.0.0.1", 3310)
+        raise ConnectionRefusedError
+
+    monkeypatch.setattr(security.socket, "create_connection", connect)
+    with pytest.raises(ConnectionRefusedError):
+        security.command(b"PING")
 
 @pytest.mark.parametrize("url", ["http://rbi.org.in/x","https://rbi.org.in.example/x","https://user@rbi.org.in/x","file:///tmp/a","https://rbi.org.in:444/a"])
 def test_bad_target(url):
