@@ -68,12 +68,15 @@ def test_failed_scan_never_reaches_parser(monkeypatch):
     stages=[]
     monkeypatch.setattr(service,"event",lambda _,stage:stages.append(stage))
     monkeypatch.setattr(service.security,"retrieve",lambda *_:b"%PDF-1.7")
+    revisions = []
+    monkeypatch.setattr(service, "record_revision", lambda *args: revisions.append(args))
     def deny(_):
         raise ValueError("SCAN_INCONCLUSIVE")
     monkeypatch.setattr(service.security,"scan",deny)
     with pytest.raises(ValueError,match="SCAN_INCONCLUSIVE"):
         service.pipeline.invoke({"job":uuid4(),"source":service.Source(regulator="RBI",source_url="https://rbi.org.in/a.pdf"),"upload":None})
     assert stages==["verification","scan"]
+    assert len(revisions) == 1
 
 def test_verified_document_produces_revision_bound_evidence(monkeypatch):
     data = b"%PDF-1.7"
@@ -85,6 +88,7 @@ def test_verified_document_produces_revision_bound_evidence(monkeypatch):
     stages = []
     monkeypatch.setattr(service, "event", lambda _, stage: stages.append(stage))
     monkeypatch.setattr(service.security, "retrieve", lambda *_: data)
+    monkeypatch.setattr(service, "record_revision", lambda *_: None)
     monkeypatch.setattr(service.security, "scan", lambda _: "ClamAV test")
     monkeypatch.setenv("LLM_ENDPOINT", "https://model.example/extract")
     monkeypatch.setenv("LLM_KEY", "test-model-key")

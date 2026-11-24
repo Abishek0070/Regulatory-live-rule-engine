@@ -8,6 +8,8 @@ services:
       LLM_ENDPOINT: ${LLM_ENDPOINT:?required}
       LLM_MODEL: ${LLM_MODEL:?required}
       LLM_KEY: ${LLM_KEY:?required}
+      SUPABASE_URL: ${SUPABASE_URL:?required}
+      SUPABASE_STORAGE_KEY: ${SUPABASE_STORAGE_KEY:?required}
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]

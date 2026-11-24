@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from langgraph.graph import StateGraph, START, END
 from . import security
+from .artifact_storage import ArtifactStorageError, upload_artifact
 from .evidence import IndexedSelection, Selection, select, summarize
 
 app=FastAPI(title="Regulatory Integration Agent",version="1.0")
@@ -81,11 +82,19 @@ class State(TypedDict,total=False):
     blocks:list
     obligations:list
 
+def record_revision(job, source, digest):
+    with db() as conn:
+        conn.execute("SELECT regulatory.record_verified_revision(%s,%s,%s,%s)",
+                     (job, source.regulator, source.source_url, digest))
+
+
 def verify(s):
     event(s["job"],"verification")
     src=s["source"]
     data=security.retrieve(src.regulator,src.source_url)
-    return {"data":data,"digest":security.verify(data,s["upload"],src.expected_sha256)}
+    digest = security.verify(data, s["upload"], src.expected_sha256)
+    record_revision(s["job"], src, digest)
+    return {"data": data, "digest": digest}
 
 def scan(s):
     event(s["job"],"scan")
@@ -210,10 +219,41 @@ for node in [verify,scan,parse,extract]:
 graph.add_edge(prior,END)
 pipeline=graph.compile()
 
+def write_final_status(conn, job, status, result):
+    conn.execute("UPDATE regulatory.jobs SET status=%s,result=%s WHERE id=%s",
+                 (status, Jsonb(result), job))
+    conn.execute("INSERT INTO regulatory.events(job,stage) VALUES(%s,%s)", (job, status))
+
+
+def finish_job(job, status, result):
+    try:
+        with db() as conn:
+            write_final_status(conn, job, status, result)
+            if status == "completed":
+                artifact_id, version, data = conn.execute("""
+                    SELECT id, version, convert_to(payload::text, 'UTF8')
+                    FROM regulatory.artifact_versions WHERE job_id=%s
+                """, (job,)).fetchone()
+                bucket, path, digest = upload_artifact(job, version, data)
+                conn.execute("""
+                    INSERT INTO regulatory.artifact_objects(artifact_id,bucket,object_path,sha256)
+                    VALUES(%s,%s,%s,%s)
+                """, (artifact_id, bucket, path, digest))
+    except ArtifactStorageError:
+        status, result = "ARTIFACT_STORAGE_FAILED", None
+        with db() as conn:
+            write_final_status(conn, job, status, result)
+    return status, result
+
+
 def process(source,upload,identity):
     job=uuid4()
     with db() as c:
-        c.execute("INSERT INTO regulatory.jobs(id,owner,status) VALUES(%s,%s,'processing')",(job,identity))
+        c.execute(
+            "INSERT INTO regulatory.jobs(id,owner,status,source_regulator,source_url) "
+            "VALUES(%s,%s,'processing',%s,%s)",
+            (job, identity, source.regulator, source.source_url),
+        )
         c.execute("INSERT INTO regulatory.events(job,stage) VALUES(%s,'intake')",(job,))
     result=None
     try:
@@ -231,9 +271,7 @@ def process(source,upload,identity):
         status=str(exc) if str(exc) in allowed else "INCONCLUSIVE"
     except Exception:
         status="INCONCLUSIVE"
-    with db() as c:
-        c.execute("UPDATE regulatory.jobs SET status=%s,result=%s WHERE id=%s",(status,Jsonb(result),job))
-        c.execute("INSERT INTO regulatory.events(job,stage) VALUES(%s,%s)",(job,status))
+    status, result = finish_job(job, status, result)
     return {"job_id":job,"status":status,"result":result}
 
 @app.post("/v1/jobs/url")
