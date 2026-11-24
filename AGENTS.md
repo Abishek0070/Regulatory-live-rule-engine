@@ -1,0 +1,1 @@
+Build one deterministic workflow. Write regression tests before each module. Treat all external bytes and model output as untrusted. Only the scanner-success path can call the parser. Never give parser or model database credentials. Bind citations to immutable document revisions.

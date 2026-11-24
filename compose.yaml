@@ -1,0 +1,39 @@
+services:
+  api:
+    build: {context: ., target: api}
+    ports: ["127.0.0.1:8000:8000"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?required}
+      CLIENT_TOKEN_HASHES: ${CLIENT_TOKEN_HASHES:?required}
+      LLM_ENDPOINT: ${LLM_ENDPOINT:?required}
+      LLM_MODEL: ${LLM_MODEL:?required}
+      LLM_KEY: ${LLM_KEY:?required}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    volumes: ["ipc:/ipc:ro"]
+    depends_on: [parser, clamav]
+    networks: [default, scanning]
+    mem_limit: 1g
+  parser:
+    build: {context: ., target: parser}
+    network_mode: none
+    read_only: true
+    tmpfs: ["/tmp:size=512m,mode=1777"]
+    environment: {HOME: /tmp, HF_HUB_OFFLINE: "1"}
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 6g
+    cpus: 2
+    volumes: ["ipc:/ipc"]
+  clamav:
+    image: clamav/clamav:stable
+    volumes: ["signatures:/var/lib/clamav"]
+    networks: [scanning]
+    environment: {TZ: UTC}
+volumes:
+  ipc:
+  signatures:
+networks:
+  scanning: {}

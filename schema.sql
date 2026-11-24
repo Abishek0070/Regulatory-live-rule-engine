@@ -1,0 +1,12 @@
+BEGIN;
+CREATE SCHEMA regulatory;
+REVOKE ALL ON SCHEMA regulatory FROM PUBLIC;
+CREATE TABLE regulatory.jobs(id uuid PRIMARY KEY, owner text NOT NULL, status text NOT NULL, result jsonb, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE regulatory.events(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,job uuid NOT NULL REFERENCES regulatory.jobs(id),stage text NOT NULL,at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX ON regulatory.events(job,id);
+CREATE ROLE regulatory_runtime NOLOGIN;
+GRANT USAGE ON SCHEMA regulatory TO regulatory_runtime;
+GRANT INSERT,SELECT,UPDATE(status,result) ON regulatory.jobs TO regulatory_runtime;
+GRANT INSERT ON regulatory.events TO regulatory_runtime;
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA regulatory TO regulatory_runtime;
+COMMIT;

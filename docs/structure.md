@@ -1,0 +1,1 @@
+agent/security.py handles official retrieval and scanning. agent/parser.py runs in its own image. agent/service.py owns the HTTP and graph interfaces. schema.sql provisions private storage. tests/ covers the trust boundaries. compose.yaml defines the runtime.
