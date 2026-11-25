@@ -2,6 +2,7 @@ import io
 import json
 import re
 import sys
+from statistics import median
 
 
 NUMBERED_PARAGRAPH = re.compile(r"^[“\"]?(?:\d+[A-Z]?\.|\((?:\d+|[a-z]+)\))\s", re.I)
@@ -18,13 +19,17 @@ def page_blocks(lines, page, first_index):
                       coord_origin="TOPLEFT")
         begins_paragraph = (
             previous is None
+            or line.get("kind","text") != "text"
+            or previous.get("kind","text") != "text"
+            or abs(line["x0"]-previous["x0"]) > 18
+            or re.match(r"^\d+(?:\.\d+)+\s",text)
             or NUMBERED_PARAGRAPH.match(text)
             or line["top"] - previous["bottom"] > max(5, previous["bottom"] - previous["top"])
             or len(blocks[-1]["text"]) + len(text) > 2400
         )
         if begins_paragraph:
             blocks.append(dict(ref=f"#/texts/{first_index + len(blocks)}", page=page,
-                               heading=None, kind="text", text=text, bbox=bounds))
+                               heading=None, kind=line.get("kind","text"), text=text, bbox=bounds))
         else:
             current = blocks[-1]
             current["text"] += " " + text
@@ -47,7 +52,22 @@ def parse(data):
         if not 0 < len(document.pages) <= 250:
             raise ValueError("Unsupported page count")
         for page in document.pages:
-            blocks.extend(page_blocks(page.extract_text_lines(return_chars=False),
+            lines = page.extract_text_lines(return_chars=True)
+            tables = [(t.bbox, t.rows[0].bbox[3]) for t in page.find_tables() if t.rows]
+            typical = median([float(c["size"]) for c in page.chars] or [10])
+            for line in lines:
+                chars = line.pop("chars", [])
+                height = median([float(c["size"]) for c in chars] or [typical])
+                for (left, top, right, bottom), header_bottom in tables:
+                    if top <= (line["top"]+line["bottom"])/2 <= bottom and line["x0"] < right and line["x1"] > left:
+                        line["kind"] = "table_header" if line["top"] < header_bottom else "table_row"
+                        break
+                else:
+                    if height > typical*1.15 or chars and all("bold" in c["fontname"].lower() for c in chars):
+                        line["kind"] = "heading"
+                    elif height < typical*.85 and line["top"] > page.height*.7:
+                        line["kind"] = "footnote"
+            blocks.extend(page_blocks(lines,
                                      page.page_number, len(blocks)))
             page.close()
     return blocks
