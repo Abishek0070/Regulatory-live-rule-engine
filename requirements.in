@@ -5,4 +5,4 @@ psycopg[binary]
 httpx
 urllib3
 langgraph
-python-multipart
+pdfplumber==0.11.11

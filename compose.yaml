@@ -3,8 +3,8 @@ services:
     build: {context: ., target: api}
     ports: ["127.0.0.1:8000:8000"]
     environment:
+      PARSER_SOCKET: /ipc/parser.sock
       DATABASE_URL: ${DATABASE_URL:?required}
-      CLIENT_TOKEN_HASHES: ${CLIENT_TOKEN_HASHES:?required}
       LLM_ENDPOINT: ${LLM_ENDPOINT:?required}
       LLM_MODEL: ${LLM_MODEL:?required}
       LLM_KEY: ${LLM_KEY:?required}
@@ -22,7 +22,6 @@ services:
     network_mode: none
     read_only: true
     tmpfs: ["/tmp:size=512m,mode=1777"]
-    environment: {HOME: /tmp, HF_HUB_OFFLINE: "1"}
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     pids_limit: 128

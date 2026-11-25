@@ -32,6 +32,8 @@ function renderObligations(obligations) {
     const header = table.createTHead().insertRow();
     append(header, "th", "Source");
     append(header, "th", "Obligation");
+    append(header, "th", "Tag");
+    append(header, "th", "System");
     const body = table.createTBody();
     for (const obligation of obligations) {
       const row = body.insertRow();
@@ -44,6 +46,8 @@ function renderObligations(obligations) {
       append(evidence, "summary", "Source excerpt");
       append(evidence, "p", citation.quote);
       cell.append(evidence);
+      row.insertCell().textContent = obligation.potential_change?.area ?? "?";
+      row.insertCell().textContent = obligation.potential_change?.system ?? "?";
     }
     results.append(table);
 }

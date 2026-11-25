@@ -6,8 +6,25 @@ import pytest
 from agent import service
 
 
+def test_model_retries_rate_limited_batch(monkeypatch):
+    calls, delays = [], []
+    monkeypatch.setattr(service, "sleep", delays.append)
+
+    def respond(request):
+        calls.append(request.content)
+        if len(calls) == 1:
+            return httpx.Response(429, headers={"Retry-After": "19"})
+        return httpx.Response(200, json={"choices": []})
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        reply = service.request_extraction(client, "https://model.example", {}, {"model": "test"})
+    assert reply.status_code == 200
+    assert len(calls) == 2 and calls[0] == calls[1]
+    assert delays == [19]
+
+
 def test_local_parser_timeout_has_its_own_status(monkeypatch):
-    monkeypatch.setenv("PARSER_MODE", "local")
+    monkeypatch.delenv("PARSER_SOCKET", raising=False)
     monkeypatch.setattr(service, "event", lambda *_: None)
 
     def timeout(args, **kwargs):
@@ -20,7 +37,7 @@ def test_local_parser_timeout_has_its_own_status(monkeypatch):
 
 
 def test_local_parser_uses_credential_free_subprocess(monkeypatch):
-    monkeypatch.setenv("PARSER_MODE", "local")
+    monkeypatch.delenv("PARSER_SOCKET", raising=False)
     monkeypatch.setenv("DATABASE_URL", "private")
     monkeypatch.setenv("LLM_KEY", "private")
     monkeypatch.setattr(service, "event", lambda *_: None)
@@ -29,7 +46,7 @@ def test_local_parser_uses_credential_free_subprocess(monkeypatch):
              "bbox": {"l": 0, "t": 0, "r": 10, "b": 10, "coord_origin": "TOPLEFT"}}
 
     def run(args, **kwargs):
-        assert args[-1].endswith("agent/parser.py") or args[-1].endswith("agent\\parser.py")
+        assert service.Path(args[-1]).name == "pdfplumber_parser.py"
         assert kwargs["input"] == b"%PDF-test"
         assert "DATABASE_URL" not in kwargs["env"]
         assert "LLM_KEY" not in kwargs["env"]
@@ -44,6 +61,7 @@ def test_local_parser_uses_credential_free_subprocess(monkeypatch):
     RuntimeError("Attempted to connect to a UNIX socket on a Windows system."),
 ])
 def test_unavailable_parser_reports_specific_status(monkeypatch, error):
+    monkeypatch.setenv("PARSER_SOCKET", "/ipc/parser.sock")
     monkeypatch.setattr(service, "event", lambda *_: None)
 
     def unavailable(request):
@@ -86,6 +104,7 @@ def test_verified_document_produces_revision_bound_evidence(monkeypatch):
         "bbox": {"l": 0, "t": 0, "r": 10, "b": 10, "coord_origin": "TOPLEFT"},
     }
     stages = []
+    monkeypatch.setenv("PARSER_SOCKET", "/ipc/parser.sock")
     monkeypatch.setattr(service, "event", lambda _, stage: stages.append(stage))
     monkeypatch.setattr(service.security, "retrieve", lambda *_: data)
     monkeypatch.setattr(service, "record_revision", lambda *_: None)
@@ -122,7 +141,7 @@ def test_verified_document_produces_revision_bound_evidence(monkeypatch):
 
 @pytest.mark.parametrize("empty", [False, True])
 def test_local_model_selection_binds_to_server_text(monkeypatch, empty):
-    monkeypatch.setenv("PARSER_MODE", "local")
+    monkeypatch.delenv("PARSER_SOCKET", raising=False)
     monkeypatch.setenv("LLM_ENDPOINT", "https://model.example/extract")
     monkeypatch.setenv("LLM_KEY", "test")
     monkeypatch.setenv("LLM_MODEL", "test")
@@ -152,3 +171,18 @@ def test_local_model_selection_binds_to_server_text(monkeypatch, empty):
         "Submit the required reports.", "File a separate return.",
     ]
     assert len({item["obligation_id"] for item in result["obligations"]}) == 2
+
+
+def test_review_reason_is_audited_without_changing_status(monkeypatch):
+    from unittest.mock import MagicMock
+    db = MagicMock()
+    monkeypatch.setattr(service, "db", db)
+    def review(_):
+        raise service.ExtractionReview("MODEL_FLAGGED_AMBIGUITY")
+    monkeypatch.setattr(service.pipeline, "invoke", review)
+    source = service.Source(regulator="RBI", source_url="https://rbi.org.in/source.pdf")
+    result = service.process(source, None, "test-owner")
+    assert result["status"] == "REVIEW_REQUIRED"
+    assert result["review_reason"] == "MODEL_FLAGGED_AMBIGUITY"
+    calls = db.return_value.__enter__.return_value.execute.call_args_list
+    assert any(call.args[1] == (result["job_id"], "MODEL_FLAGGED_AMBIGUITY") for call in calls)

@@ -18,7 +18,7 @@ async def parse(request:Request):
             if len(data)+len(chunk)>16*1024**2:
                 raise HTTPException(413)
             data.extend(chunk)
-        proc=await asyncio.create_subprocess_exec(sys.executable,"-m","agent.parser",
+        proc=await asyncio.create_subprocess_exec(sys.executable,"-m","agent.pdfplumber_parser",
             stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,start_new_session=True)
         try:
