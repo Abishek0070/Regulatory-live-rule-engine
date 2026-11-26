@@ -1,6 +1,6 @@
 import pytest
 
-from agent.pdfplumber_parser import page_blocks
+from RIA_agent.pdfplumber_parser import page_blocks
 
 
 def line(text, top, bottom, left=12, right=120):
@@ -23,3 +23,13 @@ def test_paragraphs_keep_page_coordinates_and_numbered_boundaries():
 def test_page_without_text_requires_review():
     with pytest.raises(ValueError, match="no extractable text"):
         page_blocks([], page=1, first_index=0)
+
+
+def test_wrapped_table_row_is_one_evidence_block():
+    first = {"id":"4/0","row":1,"cells":[]}
+    second = dict(first,row=2)
+    lines = [dict(line(text,top,top+8),kind="table_row",table=table)
+             for text,top,table in [("Closure Charges/ Pre-",10,first),("payment Penalty",20,first),("Next circular",30,second)]]
+    blocks = page_blocks(lines,4,0)
+    assert [b["text"] for b in blocks] == ["Closure Charges/ Pre- payment Penalty","Next circular"]
+    assert blocks[0]["bbox"]["b"] == 28

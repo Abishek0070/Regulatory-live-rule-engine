@@ -13,11 +13,26 @@ function append(parent, tag, value, className) {
   parent.append(element);
 }
 
+let selectionVersion = 0;
+function clearOutput() {
+  results.replaceChildren();
+  raw.hidden = true;
+  byId("raw-json").textContent = "";
+  jobId.value = "";
+}
+byId("submit-job").addEventListener("input", () => {
+  selectionVersion++;
+  clearOutput();
+  status.textContent = "Ready to submit this document.";
+});
+
 function render(job) {
   status.textContent = String(job.status).replaceAll("_", " ");
   jobId.value = job.job_id;
   append(results, "p", job.job_id, "metadata");
+  if (job.review_reason) append(results, "p", job.review_reason.replaceAll("_", " "));
   const result = job.result;
+  if (result?.document) append(results,"p",result.document.source_url,"metadata");
   if (result) {
     append(results, "p", `Document SHA-256: ${result.sha256}`, "metadata");
     append(results, "p", `Model: ${result.model} · Obligations: ${result.obligations.length}`, "metadata");
@@ -53,8 +68,8 @@ function renderObligations(obligations) {
 }
 
 async function run(label, path, options = {}) {
-  results.replaceChildren();
-  raw.hidden = true;
+  const version = ++selectionVersion;
+  clearOutput();
   raw.open = false;
   byId("raw-json").textContent = "";
   status.classList.remove("error");
@@ -70,8 +85,10 @@ async function run(label, path, options = {}) {
       const detail = typeof payload?.detail === "string" ? payload.detail : "";
       throw new Error(detail || `Request failed (HTTP ${response.status}).`);
     }
-    render(await response.json());
+    const job = await response.json();
+    if (version === selectionVersion) render(job);
   } catch (error) {
+    if (version !== selectionVersion) return;
     status.textContent = error.message;
     status.classList.add("error");
   } finally {

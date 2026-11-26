@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 import pytest
 
-from agent.service import app
+from RIA_agent.service import app
 
 
 def test_console_serves_same_origin_assets_without_credentials():

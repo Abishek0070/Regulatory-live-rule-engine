@@ -1,5 +1,5 @@
 import pytest
-from agent.evidence import select, Pick, Selection
+from RIA_agent.evidence import select, Pick, Selection
 
 def test_model_cannot_supply_a_string_ambiguity_flag():
     with pytest.raises(ValueError):

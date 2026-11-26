@@ -46,6 +46,13 @@ def verdict(reply):
         raise ValueError("MALWARE_DETECTED" if reply.endswith(b" FOUND") else "SCAN_INCONCLUSIVE")
 
 def command(cmd, data=None):
+    try:
+        return scanner_command(cmd, data)
+    except OSError as exc:
+        raise ValueError("SCANNER_UNAVAILABLE") from exc
+
+
+def scanner_command(cmd, data):
     with socket.create_connection((os.environ.get("CLAMAV_HOST", "clamav"), 3310), timeout=30) as s:
         s.sendall(b"z"+cmd+b"\0")
         if data is not None:

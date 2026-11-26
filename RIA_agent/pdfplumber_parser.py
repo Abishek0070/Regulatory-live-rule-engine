@@ -27,9 +27,12 @@ def page_blocks(lines, page, first_index):
             or line["top"] - previous["bottom"] > max(5, previous["bottom"] - previous["top"])
             or len(blocks[-1]["text"]) + len(text) > 2400
         )
+        # A wrapped cell may occupy several visual lines of one physical row.
+        if previous and line.get("table") and line["table"] == previous.get("table"):
+            begins_paragraph = False
         if begins_paragraph:
             blocks.append(dict(ref=f"#/texts/{first_index + len(blocks)}", page=page,
-                               heading=None, kind=line.get("kind","text"), text=text, bbox=bounds))
+                               heading=None, kind=line.get("kind","text"), text=text, bbox=bounds, **({"table":line["table"]} if "table" in line else {})))
         else:
             current = blocks[-1]
             current["text"] += " " + text
@@ -53,14 +56,24 @@ def parse(data):
             raise ValueError("Unsupported page count")
         for page in document.pages:
             lines = page.extract_text_lines(return_chars=True)
-            tables = [(t.bbox, t.rows[0].bbox[3]) for t in page.find_tables() if t.rows]
+            tables = []
+            for number, table in enumerate(page.find_tables()):
+                matrix = table.extract()
+                if not matrix or not table.rows:
+                    raise ValueError("Incomplete table")
+                for row_no, (row, values) in enumerate(zip(table.rows, matrix, strict=True)):
+                    cells = [dict(column=j, header=matrix[0][j], text=value,
+                                  bbox=list(box) if box else None)
+                             for j,(value,box) in enumerate(zip(values,row.cells,strict=True))]
+                    tables.append((row.bbox, dict(id=f"{page.page_number}/{number}", row=row_no, cells=cells)))
             typical = median([float(c["size"]) for c in page.chars] or [10])
             for line in lines:
                 chars = line.pop("chars", [])
                 height = median([float(c["size"]) for c in chars] or [typical])
-                for (left, top, right, bottom), header_bottom in tables:
+                for (left, top, right, bottom), metadata in tables:
                     if top <= (line["top"]+line["bottom"])/2 <= bottom and line["x0"] < right and line["x1"] > left:
-                        line["kind"] = "table_header" if line["top"] < header_bottom else "table_row"
+                        line["table"] = metadata
+                        line["kind"] = "table_header" if metadata["row"] == 0 else "table_row"
                         break
                 else:
                     if height > typical*1.15 or chars and all("bold" in c["fontname"].lower() for c in chars):

@@ -5,8 +5,8 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from agent import service
-from agent.artifact_storage import ArtifactStorageError, upload_artifact
+from RIA_agent import service
+from RIA_agent.artifact_storage import ArtifactStorageError, upload_artifact
 
 
 def test_private_upload_uses_content_address_and_disables_overwrite(monkeypatch):

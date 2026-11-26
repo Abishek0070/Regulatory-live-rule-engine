@@ -1,7 +1,7 @@
-import hashlib
+﻿import hashlib
 import pytest
-from agent import security
-from agent.security import target, verify, verdict
+from RIA_agent import security
+from RIA_agent.security import target, verify, verdict
 
 def test_scanner_can_use_local_daemon(monkeypatch):
     monkeypatch.setenv("CLAMAV_HOST", "127.0.0.1")
@@ -11,7 +11,7 @@ def test_scanner_can_use_local_daemon(monkeypatch):
         raise ConnectionRefusedError
 
     monkeypatch.setattr(security.socket, "create_connection", connect)
-    with pytest.raises(ConnectionRefusedError):
+    with pytest.raises(ValueError, match="^SCANNER_UNAVAILABLE$"):
         security.command(b"PING")
 
 @pytest.mark.parametrize("url", ["http://rbi.org.in/x","https://rbi.org.in.example/x","https://user@rbi.org.in/x","file:///tmp/a","https://rbi.org.in:444/a"])

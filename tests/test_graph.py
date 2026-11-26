@@ -3,7 +3,7 @@ import hashlib
 import json
 import httpx
 import pytest
-from agent import service
+from RIA_agent import service
 
 
 def test_model_retries_rate_limited_batch(monkeypatch):
@@ -113,20 +113,15 @@ def test_verified_document_produces_revision_bound_evidence(monkeypatch):
     monkeypatch.setenv("LLM_KEY", "test-model-key")
     monkeypatch.setenv("LLM_MODEL", "test-model")
 
-    monkeypatch.setattr(service,"chunk_checkpoint",lambda *_: None)
     def respond(request):
         if request.url.host == "parser":
             assert request.content == data
             assert "Authorization" not in request.headers
             return httpx.Response(200, json=[block])
         assert request.headers["Authorization"] == "Bearer test-model-key"
-        if isinstance(json.loads(json.loads(request.content)["messages"][1]["content"]),dict):
-            audit = json.dumps(dict(missed_or_unsupported=False,affected=[]))
-            return httpx.Response(200,json={"choices":[{"message":{"content":audit}}]})
         selection = {"ambiguous": False, "picks": [
-            {"index": 0, "statement":block["text"], "evidence":[{"index":0,"quote":block["text"]}], "area": "reporting"},
+            {"index": 0, "quote": block["text"], "area": "reporting"},
         ]}
-        selection["coverage"] = [{"index":0,"kind":"mandatory"}]
         return httpx.Response(200, json={"choices": [
             {"message": {"content": json.dumps(selection)}},
         ]})
@@ -155,23 +150,17 @@ def test_local_model_selection_binds_to_server_text(monkeypatch, empty):
 
     def respond(request):
         payload = json.loads(request.content)
-        if isinstance(json.loads(json.loads(request.content)["messages"][1]["content"]),dict):
-            audit = json.dumps(dict(missed_or_unsupported=False,affected=[]))
-            return httpx.Response(200,json={"choices":[{"message":{"content":audit}}]})
+        assert json.loads(payload["messages"][1]["content"])[0]["index"] == 0
         selection = {"ambiguous": False, "picks": [] if empty else [
             {"index": 0, "area": "reporting", "statement": "Submit the required reports."},
             {"index": 0, "area": "reporting", "statement": "File a separate return."},
         ]}
-        selection["coverage"] = [{"index":0,"kind":"mandatory"}]
-        for pick in selection["picks"]:
-            pick["evidence"] = [{"index":0,"quote":block["text"]}]
         return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(selection)}}]})
 
     client = httpx.Client
     monkeypatch.setattr(service.httpx, "Client",
                         lambda **_: client(transport=httpx.MockTransport(respond)))
-    monkeypatch.setattr(service,"chunk_checkpoint",lambda *_: None)
-    state = {"source":service.Source(regulator="RBI",source_url="https://rbi.org.in/a.pdf"),"job": uuid4(), "blocks": [block], "digest": "a" * 64}
+    state = {"job": uuid4(), "blocks": [block], "digest": "a" * 64}
     if empty:
         with pytest.raises(ValueError, match="REVIEW_REQUIRED"):
             service.extract(state)
