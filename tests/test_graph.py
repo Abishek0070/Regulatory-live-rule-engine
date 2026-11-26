@@ -177,6 +177,8 @@ def test_review_reason_is_audited_without_changing_status(monkeypatch):
     from unittest.mock import MagicMock
     db = MagicMock()
     monkeypatch.setattr(service, "db", db)
+    monkeypatch.setattr(service,"verified_input",lambda *_: (b"pdf","digest"))
+    monkeypatch.setattr(service,"previous_result",lambda *_: None)
     def review(_):
         raise service.ExtractionReview("MODEL_FLAGGED_AMBIGUITY")
     monkeypatch.setattr(service.pipeline, "invoke", review)
@@ -186,3 +188,10 @@ def test_review_reason_is_audited_without_changing_status(monkeypatch):
     assert result["review_reason"] == "MODEL_FLAGGED_AMBIGUITY"
     calls = db.return_value.__enter__.return_value.execute.call_args_list
     assert any(call.args[1] == (result["job_id"], "MODEL_FLAGGED_AMBIGUITY") for call in calls)
+
+def test_duplicate_returns_before_job_creation(monkeypatch):
+    source = service.Source(regulator="RBI",source_url="https://rbi.org.in/test.pdf")
+    cached = {"already_processed":True,"result":{"obligations":[{}]}}
+    monkeypatch.setattr(service,"verified_input",lambda *_:(b"pdf","digest"))
+    monkeypatch.setattr(service,"previous_result",lambda owner,src,h: cached if h=="digest" else None)
+    assert service.process(source,b"pdf","local-console") == cached

@@ -12,17 +12,31 @@ class ArtifactStorageError(Exception):
     pass
 
 
-def upload_artifact(job_id, version, data, *, transport=None):
+def storage_config():
     base_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
     key = os.environ.get("SUPABASE_STORAGE_KEY")
     origin = urlsplit(base_url)
     if not key or origin.scheme != "https" or not origin.hostname or origin.username or origin.path or origin.query or origin.fragment:
         raise ArtifactStorageError("Supabase Storage is not configured")
 
+    return base_url, {"Authorization": f"Bearer {key}", "apikey": key}
+
+
+def read_artifact(job, version, digest):
+    base_url, headers = storage_config()
+    path = f"{job}/v{version}/{digest}.json"
+    with httpx.Client(timeout=30, trust_env=False) as client:
+        response = client.get(f"{base_url}/storage/v1/object/authenticated/{BUCKET}/{path}", headers=headers)
+    if response.is_success and hashlib.sha256(response.content).hexdigest() == digest:
+        return response.json()
+    return None
+
+
+def upload_artifact(job_id, version, data, *, transport=None):
+    base_url, headers = storage_config()
     digest = hashlib.sha256(data).hexdigest()
     path = f"{job_id}/v{version}/{digest}.json"
     url = f"{base_url}/storage/v1/object/{BUCKET}/{path}"
-    headers = {"Authorization": f"Bearer {key}", "apikey": key}
     try:
         with httpx.Client(timeout=30, trust_env=False, transport=transport) as client:
             response = client.post(url, content=data, headers={

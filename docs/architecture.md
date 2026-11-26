@@ -1,1 +1,1 @@
-The FastAPI service verifies the official PDF, scans it with ClamAV and parses page-linked text with pdfplumber. Extraction processes consecutive batches of 12 parser blocks. The server resolves citations and stores completed artifacts in private storage with PostgreSQL metadata.
+The FastAPI service verifies the official PDF, scans it with ClamAV and parses page-linked text with pdfplumber. Extraction sends consecutive batches of up to 12 parser blocks in document order. The server resolves citations and stores completed artifacts in private storage with PostgreSQL metadata.

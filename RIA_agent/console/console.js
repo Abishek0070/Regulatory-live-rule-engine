@@ -27,7 +27,7 @@ byId("submit-job").addEventListener("input", () => {
 });
 
 function render(job) {
-  status.textContent = String(job.status).replaceAll("_", " ");
+  status.textContent = job.already_processed ? "Already processed" : String(job.status).replaceAll("_", " ");
   jobId.value = job.job_id;
   append(results, "p", job.job_id, "metadata");
   if (job.review_reason) append(results, "p", job.review_reason.replaceAll("_", " "));
